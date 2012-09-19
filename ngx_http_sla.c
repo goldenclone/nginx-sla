@@ -1025,10 +1025,10 @@ static ngx_int_t ngx_http_sla_print_counter (ngx_buf_t* buf, ngx_http_sla_pool_t
     buf->last = ngx_sprintf(buf->last, "%V.%s.http_xxx.percent = 100\n", &pool->name, counter->name);
 
     for (i = 0; i < 5; i++) {
-        buf->last = ngx_sprintf(buf->last, "%V.%s.http_%uAxx = %uA\n", &pool->name, counter->name,  (i + 1) * 100, counter->http_xxx[i]);
+        buf->last = ngx_sprintf(buf->last, "%V.%s.http_%uAxx = %uA\n", &pool->name, counter->name,  i + 1, counter->http_xxx[i]);
 
         if (http_xxx_count > 0) {
-            buf->last = ngx_sprintf(buf->last, "%V.%s.http_%uAxx.percent = %uA\n", &pool->name, counter->name, (i + 1) * 100, counter->http_xxx[i] * 100 / http_xxx_count);
+            buf->last = ngx_sprintf(buf->last, "%V.%s.http_%uAxx.percent = %uA\n", &pool->name, counter->name, i + 1, counter->http_xxx[i] * 100 / http_xxx_count);
         }
     }
 
