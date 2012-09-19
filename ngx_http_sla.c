@@ -546,7 +546,7 @@ static ngx_int_t ngx_http_sla_status_handler (ngx_http_request_t* r)
     ngx_http_sla_pool_t*      pool;
     ngx_http_sla_main_conf_t* config;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "http sla handler");
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "sla handler");
 
     if (r->method != NGX_HTTP_GET && r->method != NGX_HTTP_HEAD) {
         return NGX_HTTP_NOT_ALLOWED;
@@ -624,7 +624,7 @@ static ngx_int_t ngx_http_sla_purge_handler (ngx_http_request_t* r)
     ngx_http_sla_pool_t*      pool;
     ngx_http_sla_main_conf_t* config;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "http sla_purge handler");
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "sla_purge handler");
 
     if (r->method != NGX_HTTP_GET && r->method != NGX_HTTP_HEAD) {
         return NGX_HTTP_NOT_ALLOWED;
@@ -704,11 +704,11 @@ static ngx_int_t ngx_http_sla_processor (ngx_http_request_t* r)
 
     config = ngx_http_get_module_loc_conf(r, ngx_http_sla_module);
 
-    if (config->off) {
+    if (config->off != 0 || config->pool == NULL) {
         return NGX_OK;
     }
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "http sla proccessor");
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "sla processor");
 
     /* суммарное время ответов апстримов */
     time = 0;
