@@ -70,17 +70,20 @@ typedef struct {
     ngx_uint_t http_xxx[6];                                 /** Количество ответов в группах HTTP       */
     ngx_uint_t timings[NGX_HTTP_SLA_MAX_TIMINGS_LEN];       /** Количество ответов в интервале времени  */
     ngx_uint_t timings_agg[NGX_HTTP_SLA_MAX_TIMINGS_LEN];   /** Количество ответов до интервала времени */
+    double     time_avg;                                    /** Среднее время ответа                    */
+    double     time_avg_mov;                                /** Скользящее среднее время ответа         */
 } ngx_http_sla_pool_shm_t;
 
 /**
  * Пул статистики
  */
 typedef struct {
-    ngx_str_t                name;       /** Имя пула               */
-    ngx_array_t              timings;    /** Тайминги (ngx_uint_t)  */
-    ngx_array_t              http;       /** Коды HTTP (ngx_uint_t) */
-    ngx_slab_pool_t*         shm_pool;   /** Shared memory pool     */
-    ngx_http_sla_pool_shm_t* shm_ctx;    /** Данные в shared memory */
+    ngx_str_t                name;         /** Имя пула                             */
+    ngx_array_t              timings;      /** Тайминги (ngx_uint_t)                */
+    ngx_array_t              http;         /** Коды HTTP (ngx_uint_t)               */
+    ngx_uint_t               avg_window;   /** Размер окна для скользящего среднего */
+    ngx_slab_pool_t*         shm_pool;     /** Shared memory pool                   */
+    ngx_http_sla_pool_shm_t* shm_ctx;      /** Данные в shared memory               */
 } ngx_http_sla_pool_t;
 
 /**
@@ -197,7 +200,7 @@ static ngx_int_t ngx_http_sla_print_counter (ngx_buf_t* buf, ngx_http_sla_pool_t
  */
 static ngx_command_t ngx_http_sla_commands[] = {
     { ngx_string("sla_pool"),
-      NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1234,
+      NGX_HTTP_MAIN_CONF | NGX_CONF_1MORE,
       ngx_http_sla_pool,
       NGX_HTTP_MAIN_CONF_OFFSET,
       0,
@@ -339,6 +342,7 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
 {
     ngx_uint_t                i;
     ngx_str_t*                value;
+    ngx_int_t                 ival;
     ngx_uint_t*               pval;
     size_t                    size;
     ngx_shm_zone_t*           shm_zone;
@@ -390,8 +394,9 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
         return NGX_CONF_ERROR;
     }
 
-    pool->shm_pool = NULL;
-    pool->shm_ctx  = NULL;
+    pool->shm_pool   = NULL;
+    pool->shm_ctx    = NULL;
+    pool->avg_window = 1600;
 
     /* парсинг параметров */
     for (i = 2; i < cf->args->nelts; i++) {
@@ -406,6 +411,16 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
             if (ngx_http_sla_parse_list(cf, &value[i], 5, &pool->http, 1) != NGX_OK) {
                 return NGX_CONF_ERROR;
             }
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "avg_window=", 11) == 0) {
+            ival = ngx_atoi(&value[i].data[11], value[i].len - 11);
+            if (ival == NGX_ERROR || ival < 2) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "incorrect avg_window value \"%V\"", &value[i]);
+                return NGX_CONF_ERROR;
+            }
+            pool->avg_window = ival;
             continue;
         }
 
@@ -968,6 +983,17 @@ static ngx_int_t ngx_http_sla_set_http_time (ngx_http_sla_pool_t* pool, ngx_http
         counter->timings_agg[i]++;
     }
 
+    /* средние значения */
+    i = counter->timings_agg[pool->timings.nelts - 1];
+
+    counter->time_avg = (double)(i - 1) / (double)i * counter->time_avg + (double)ms / (double)i;
+
+    if (i > pool->avg_window) {
+        counter->time_avg_mov = (double)(pool->avg_window - 1) / (double)pool->avg_window * counter->time_avg_mov + (double)ms / (double)pool->avg_window;
+    } else {
+        counter->time_avg_mov = (double)(i - 1) / (double)i * counter->time_avg_mov + (double)ms / (double)i;
+    }
+
     return NGX_OK;
 }
 
@@ -1031,6 +1057,10 @@ static ngx_int_t ngx_http_sla_print_counter (ngx_buf_t* buf, ngx_http_sla_pool_t
             buf->last = ngx_sprintf(buf->last, "%V.%s.http_%uAxx.percent = %uA\n", &pool->name, counter->name, i + 1, counter->http_xxx[i] * 100 / http_xxx_count);
         }
     }
+
+    /* среднее */
+    buf->last = ngx_sprintf(buf->last, "%V.%s.time.avg = %uA\n", &pool->name, counter->name, (ngx_uint_t)counter->time_avg);
+    buf->last = ngx_sprintf(buf->last, "%V.%s.time.avg.mov = %uA\n", &pool->name, counter->name, (ngx_uint_t)counter->time_avg_mov);
 
     /* тайминги */
     for (i = 0; i < pool->timings.nelts; i++) {
