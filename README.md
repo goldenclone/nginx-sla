@@ -91,33 +91,21 @@ server {
 
 ```
 main.all.http = 1024
-main.all.http.percent = 98
 main.all.http_200 = 914
-main.all.http_200.percent = 91
 ...
 main.all.http_xxx = 2048
-main.all.http_xxx.percent = 100
 main.all.http_2xx = 914
-main.all.http_2xx.percent = 87
 ...
 main.all.time.avg = 125
 main.all.time.avg.mov = 124
 main.all.300 = 233
-main.all.300.percent = 76
 main.all.300.agg = 233
-main.all.300.agg.percent = 76
 main.all.500 = 33
-main.all.500.percent = 10
 main.all.500.agg = 266
-main.all.500.agg.percent = 86
 main.all.2000 = 40
-main.all.2000.percent = 13
 main.all.2000.agg = 306
-main.all.2000.agg.percent = 100
 main.all.inf = 0
-main.all.inf.percent = 0
 main.all.inf.agg = 306
-main.all.inf.agg.percent = 100
 ...
 main.<upstream>.http_200 = 270
 ...
@@ -137,4 +125,3 @@ main.<upstream>.http_200 = 270
   * `avg` - среднее;
   * `mov` - скользящее (среднее);
   * `agg` - аггрегированная статистика по всем интервалам до текущего. Так, например, в 500.agg попадают все запросы, которые выполнились от 0 и до 500 ms;
-  * `percent` - процентное выражение соответствующего счетчика.

@@ -1034,28 +1034,15 @@ static ngx_int_t ngx_http_sla_print_counter (ngx_buf_t* buf, ngx_http_sla_pool_t
     /* коды http */
     buf->last = ngx_sprintf(buf->last, "%V.%s.http = %uA\n", &pool->name, counter->name, http_count);
 
-    if (http_xxx_count > 0) {
-        buf->last = ngx_sprintf(buf->last, "%V.%s.http.percent = %uA\n", &pool->name, counter->name, http_count * 100 / http_xxx_count);
-    }
-
     for (i = 0; i < pool->http.nelts - 1; i++) {
         buf->last = ngx_sprintf(buf->last, "%V.%s.http_%uA = %uA\n", &pool->name, counter->name, http_status[i], counter->http[i]);
-
-        if (http_count > 0) {
-            buf->last = ngx_sprintf(buf->last, "%V.%s.http_%uA.percent = %uA\n", &pool->name, counter->name, http_status[i], counter->http[i] * 100 / http_count);
-        }
     }
 
     /* группы кодов http */
     buf->last = ngx_sprintf(buf->last, "%V.%s.http_xxx = %uA\n", &pool->name, counter->name, http_xxx_count);
-    buf->last = ngx_sprintf(buf->last, "%V.%s.http_xxx.percent = 100\n", &pool->name, counter->name);
 
     for (i = 0; i < 5; i++) {
         buf->last = ngx_sprintf(buf->last, "%V.%s.http_%uAxx = %uA\n", &pool->name, counter->name,  i + 1, counter->http_xxx[i]);
-
-        if (http_xxx_count > 0) {
-            buf->last = ngx_sprintf(buf->last, "%V.%s.http_%uAxx.percent = %uA\n", &pool->name, counter->name, i + 1, counter->http_xxx[i] * 100 / http_xxx_count);
-        }
     }
 
     /* среднее */
@@ -1066,25 +1053,10 @@ static ngx_int_t ngx_http_sla_print_counter (ngx_buf_t* buf, ngx_http_sla_pool_t
     for (i = 0; i < pool->timings.nelts; i++) {
         if (timing[i] != (ngx_uint_t)-1) {
             buf->last = ngx_sprintf(buf->last, "%V.%s.%uA = %uA\n", &pool->name, counter->name, timing[i], counter->timings[i]);
-
-            if (timings_count > 0) {
-                buf->last = ngx_sprintf(buf->last, "%V.%s.%uA.percent = %uA\n", &pool->name, counter->name, timing[i], counter->timings[i] * 100 / timings_count);
-            }
-
             buf->last = ngx_sprintf(buf->last, "%V.%s.%uA.agg = %uA\n", &pool->name, counter->name, timing[i], counter->timings_agg[i]);
-
-            if (timings_count > 0) {
-                buf->last = ngx_sprintf(buf->last, "%V.%s.%uA.agg.percent = %uA\n", &pool->name, counter->name, timing[i], counter->timings_agg[i] * 100 / timings_count);
-            }
         } else {
             buf->last = ngx_sprintf(buf->last, "%V.%s.inf = %uA\n", &pool->name, counter->name, counter->timings[i]);
-
-            if (timings_count > 0) {
-                buf->last = ngx_sprintf(buf->last, "%V.%s.inf.percent = %uA\n", &pool->name, counter->name, counter->timings[i] * 100 / timings_count);
-            }
-
             buf->last = ngx_sprintf(buf->last, "%V.%s.inf.agg = %uA\n", &pool->name, counter->name, timings_count);
-            buf->last = ngx_sprintf(buf->last, "%V.%s.inf.agg.percent = 100\n", &pool->name, counter->name);
         }
     }
 
