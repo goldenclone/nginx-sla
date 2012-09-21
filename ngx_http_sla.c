@@ -526,14 +526,15 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     }
 
     if (pool->quantiles.nelts == 0) {
-        pval = ngx_array_push_n(&pool->quantiles, 6);
+        pval = ngx_array_push_n(&pool->quantiles, 7);
 
         pval[0] = 25;   /* обязательный */
-        pval[1] = 75;   /* обязательный */
-        pval[2] = 90;
-        pval[3] = 95;
-        pval[4] = 98;
-        pval[5] = 99;
+        pval[1] = 50;
+        pval[2] = 75;   /* обязательный */
+        pval[3] = 90;
+        pval[4] = 95;
+        pval[5] = 98;
+        pval[6] = 99;
     }
 
     /* заполнение "хвостов" для учета общего числа */
