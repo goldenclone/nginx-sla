@@ -333,6 +333,7 @@ static ngx_int_t ngx_http_sla_init (ngx_conf_t* cf)
 
 static void* ngx_http_sla_create_main_conf (ngx_conf_t* cf)
 {
+    ngx_uint_t                i;
     ngx_http_sla_main_conf_t* config;
 
     config = ngx_pcalloc(cf->pool, sizeof(ngx_http_sla_main_conf_t));
@@ -345,6 +346,12 @@ static void* ngx_http_sla_create_main_conf (ngx_conf_t* cf)
     }
 
     config->default_pool = NULL;
+
+    /* EWSA: Calculate average updating weight for next step */
+    ngx_http_sla_quantile_cc = 0;
+    for (i = 0; i < NGX_HTTP_SLA_QUANTILE_M; i++) {
+        ngx_http_sla_quantile_cc += (double)1 / sqrt(NGX_HTTP_SLA_QUANTILE_M + i + 1);
+    }
 
     return config;
 }
@@ -1206,12 +1213,6 @@ static void ngx_http_sla_init_quantiles (ngx_http_sla_pool_t* pool, ngx_http_sla
     for (i = 0; i < pool->quantiles.nelts; i++) {
         counter->quantiles_f[i] = (double)1 / ((double)2 * counter->quantiles_c * (double)NGX_HTTP_SLA_QUANTILE_M) * (double)ngx_max(1, quantile_diff[i]);
     }
-
-    /* 4. Calculate average updating weight for next step */
-    ngx_http_sla_quantile_cc = 0;
-    for (i = 0; i < NGX_HTTP_SLA_QUANTILE_M; i++) {
-        ngx_http_sla_quantile_cc += (double)1 / sqrt(NGX_HTTP_SLA_QUANTILE_M + i + 1);
-    }
 }
 
 static void ngx_http_sla_update_quantiles (ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter)
@@ -1247,7 +1248,6 @@ static void ngx_http_sla_update_quantiles (ngx_http_sla_pool_t* pool, ngx_http_s
     }
 
     /* 3.1. Take r to be the difference of the current EWSA estimates for the 75 and 25 quantiles */
-    quantile = pool->quantiles.elts;
     for (i = 0; i < pool->quantiles.nelts; i++) {
         if (quantile[i] == 25) {
             quantile_25 = counter->quantiles[i];
