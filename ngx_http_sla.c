@@ -1240,8 +1240,9 @@ static void ngx_http_sla_update_quantiles (ngx_http_sla_pool_t* pool, ngx_http_s
         }
     }
 
+    quantile = pool->quantiles.elts;
     for (i = 0; i < pool->quantiles.nelts; i++) {
-        counter->quantiles[i] = counter->quantiles[i] + NGX_HTTP_SLA_QUANTILE_W / counter->quantiles_f[i] * ((double)quantile[i] / (double)100 - (double)quantile_less[i] / (double)NGX_HTTP_SLA_QUANTILE_M);
+        counter->quantiles[i]   = counter->quantiles[i] + NGX_HTTP_SLA_QUANTILE_W / counter->quantiles_f[i] * ((double)quantile[i] / (double)100 - (double)quantile_less[i] / (double)NGX_HTTP_SLA_QUANTILE_M);
         counter->quantiles_f[i] = ((double)1 - NGX_HTTP_SLA_QUANTILE_W) * counter->quantiles_f[i] + NGX_HTTP_SLA_QUANTILE_W / ((double)2 * counter->quantiles_c * (double)NGX_HTTP_SLA_QUANTILE_M) * (double)quantile_diff[i];
     }
 
