@@ -79,7 +79,7 @@
  * Весовой коэффициент обновления вычисляемых квантилей
  */
 #ifndef NGX_HTTP_SLA_QUANTILE_W
-    #define NGX_HTTP_SLA_QUANTILE_W 0.05
+    #define NGX_HTTP_SLA_QUANTILE_W 0.01
 #endif
 
 
