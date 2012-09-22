@@ -134,7 +134,7 @@ main.<upstream>.http_200 = 270
 
 ## Используемые алгоритмы
 
-Для вычисления процентилей используется алгоритм EWSA ("Exponentially Weighted Stochastic Approximation") - подробности см. "[Incremental Quantile Estimation for Massive Tracking](ftp://ftp10.us.freebsd.org/users/azhang/disc/disc01/cd1/out/papers/kdd/p516-chen.pdf)", Fei Chen, Diane Lambert, и Jose C. Pinheiro (2000).
+Для вычисления процентилей используется алгоритм EWSA ("Exponentially Weighted Stochastic Approximation") - подробности см. "[Incremental Quantile Estimation for Massive Tracking](http://stat.bell-labs.com/cm/ms/departments/sia/doc/KDD2000.pdf)", Fei Chen, Diane Lambert, и Jose C. Pinheiro (2000).
 
 Параметры алгоритма могут быть изменены на этапе компиляции указанием соответствующих директив препроцессора:
 
