@@ -99,6 +99,7 @@ typedef struct {
     ngx_uint_t quantiles_fifo[NGX_HTTP_SLA_QUANTILE_M];       /** FIFO для вычисления квантилей           */
     double     quantiles_f[NGX_HTTP_SLA_MAX_QUANTILES_LEN];   /** f-оценки плотности распределения        */
     double     quantiles_c;                                   /** Коэффициент для вычисления оценок f     */
+    ngx_uint_t generation;                                    /** Номер поколения счетчика                */
 } ngx_http_sla_pool_shm_t;
 
 /**
@@ -112,6 +113,7 @@ typedef struct {
     ngx_uint_t               avg_window;   /** Размер окна для скользящего среднего */
     ngx_slab_pool_t*         shm_pool;     /** Shared memory pool                   */
     ngx_http_sla_pool_shm_t* shm_ctx;      /** Данные в shared memory               */
+    ngx_uint_t               generation;   /** Номер поколения пула                 */
 } ngx_http_sla_pool_t;
 
 /**
@@ -180,47 +182,52 @@ static ngx_int_t ngx_http_sla_init_zone (ngx_shm_zone_t* shm_zone, void* data);
 /**
  * Добавление значения таймингов или http кодов в список + проверка корректности значения
  */
-static ngx_int_t ngx_http_sla_push_value (ngx_conf_t* cf, ngx_str_t* orig, ngx_int_t value, ngx_array_t* to, ngx_uint_t is_http);
+static ngx_int_t ngx_http_sla_push_value (ngx_conf_t* cf, const ngx_str_t* orig, ngx_int_t value, ngx_array_t* to, ngx_uint_t is_http);
 
 /**
  * Парсинг списка таймингов или http кодов
  */
-static ngx_int_t ngx_http_sla_parse_list (ngx_conf_t* cf, ngx_str_t* orig, ngx_uint_t offset, ngx_array_t* to, ngx_uint_t is_http);
+static ngx_int_t ngx_http_sla_parse_list (ngx_conf_t* cf, const ngx_str_t* orig, ngx_uint_t offset, ngx_array_t* to, ngx_uint_t is_http);
 
 /**
  * Поиск пула по имени
  */
-static ngx_http_sla_pool_t* ngx_http_sla_get_pool (ngx_conf_t* cf, ngx_str_t* name);
+static ngx_http_sla_pool_t* ngx_http_sla_get_pool (const ngx_conf_t* cf, const ngx_str_t* name);
+
+/**
+ * Сравнение конфигурации двух пулов
+ */
+static ngx_int_t ngx_http_sla_compare_pools (const ngx_http_sla_pool_t* pool1, const ngx_http_sla_pool_t* pool2);
 
 /**
  * Поиск счетчика по имени или создание нового счетчика в пуле
  */
-static ngx_http_sla_pool_shm_t* ngx_http_sla_get_counter (ngx_http_sla_pool_t* pool, ngx_str_t* name);
+static ngx_http_sla_pool_shm_t* ngx_http_sla_get_counter (ngx_http_sla_pool_t* pool, const ngx_str_t* name);
 
 /**
  * Добавление счетчика в пул
  */
-static ngx_http_sla_pool_shm_t* ngx_http_sla_add_counter (ngx_http_sla_pool_t* pool, ngx_str_t* name, ngx_uint_t hint);
+static ngx_http_sla_pool_shm_t* ngx_http_sla_add_counter (ngx_http_sla_pool_t* pool, const ngx_str_t* name, ngx_uint_t hint);
 
 /**
  * Установка HTTP кода в счетчике
  */
-static ngx_int_t ngx_http_sla_set_http_status (ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter, ngx_uint_t status);
+static ngx_int_t ngx_http_sla_set_http_status (const ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter, ngx_uint_t status);
 
 /**
  * Установка времени обработки запроса в счетчике
  */
-static ngx_int_t ngx_http_sla_set_http_time (ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter, ngx_uint_t ms);
+static ngx_int_t ngx_http_sla_set_http_time (const ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter, ngx_uint_t ms);
 
 /**
  * Вывод статистики пула
  */
-static ngx_int_t ngx_http_sla_print_pool (ngx_buf_t* buf, ngx_http_sla_pool_t* pool);
+static void ngx_http_sla_print_pool (ngx_buf_t* buf, const ngx_http_sla_pool_t* pool);
 
 /**
  * Вывод статистики счетчика
  */
-static ngx_int_t ngx_http_sla_print_counter (ngx_buf_t* buf, ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter);
+static void ngx_http_sla_print_counter (ngx_buf_t* buf, const ngx_http_sla_pool_t* pool, const ngx_http_sla_pool_shm_t* counter);
 
 /**
  * Компаратор ngx_uint_t для сортировки массива
@@ -230,12 +237,12 @@ static int ngx_libc_cdecl ngx_http_sla_compare_uint (const void* p1, const void*
 /**
  * Инициализация квантилей
  */
-static void ngx_http_sla_init_quantiles (ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter);
+static void ngx_http_sla_init_quantiles (const ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter);
 
 /**
  * Обновление квантилей
  */
-static void ngx_http_sla_update_quantiles (ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter);
+static void ngx_http_sla_update_quantiles (const ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter);
 
 
 /**
@@ -457,6 +464,7 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     pool->shm_pool   = NULL;
     pool->shm_ctx    = NULL;
     pool->avg_window = 1600;
+    pool->generation = 0;   /* установится при аллокации shm зоны */
 
     /* парсинг параметров */
     for (i = 2; i < cf->args->nelts; i++) {
@@ -675,13 +683,11 @@ static ngx_int_t ngx_http_sla_status_handler (ngx_http_request_t* r)
     for (i = 0; i < config->pools.nelts; i++) {
         ngx_shmtx_lock(&pool->shm_pool->mutex);
 
-        result = ngx_http_sla_print_pool(buf, pool);
+        if (pool->generation == pool->shm_ctx->generation) {
+            ngx_http_sla_print_pool(buf, pool);
+        }
 
         ngx_shmtx_unlock(&pool->shm_pool->mutex);
-
-        if (result != NGX_OK) {
-            return result;
-        }
 
         pool++;
     }
@@ -757,8 +763,10 @@ static ngx_int_t ngx_http_sla_purge_handler (ngx_http_request_t* r)
     for (i = 0; i < config->pools.nelts; i++) {
         ngx_shmtx_lock(&pool->shm_pool->mutex);
 
-        ngx_memzero(pool->shm_ctx, sizeof(ngx_http_sla_pool_shm_t) * NGX_HTTP_SLA_MAX_COUNTERS_LEN);
-        ngx_http_sla_add_counter(pool, &name, 0);
+        if (pool->generation == pool->shm_ctx->generation) {
+            ngx_memzero(pool->shm_ctx, sizeof(ngx_http_sla_pool_shm_t) * NGX_HTTP_SLA_MAX_COUNTERS_LEN);
+            ngx_http_sla_add_counter(pool, &name, 0);
+        }
 
         ngx_shmtx_unlock(&pool->shm_pool->mutex);
 
@@ -797,10 +805,15 @@ static ngx_int_t ngx_http_sla_processor (ngx_http_request_t* r)
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "sla processor");
 
+    ngx_shmtx_lock(&config->pool->shm_pool->mutex);
+
+    if (config->pool->generation != config->pool->shm_ctx->generation) {
+        ngx_shmtx_unlock(&config->pool->shm_pool->mutex);
+        return NGX_OK;
+    }
+
     /* суммарное время ответов апстримов */
     time = 0;
-
-    ngx_shmtx_lock(&config->pool->shm_pool->mutex);
 
     if (r->upstream_states != NULL && r->upstream_states->nelts > 0) {
         state = r->upstream_states->elts;
@@ -846,35 +859,48 @@ static ngx_int_t ngx_http_sla_processor (ngx_http_request_t* r)
 static ngx_int_t ngx_http_sla_init_zone (ngx_shm_zone_t* shm_zone, void* data)
 {
     ngx_str_t            name;
-    ngx_http_sla_pool_t* pool;
+    ngx_http_sla_pool_t* pool     = shm_zone->data;
+    ngx_http_sla_pool_t* old_pool = data;
 
-    if (data != NULL) {
-        /* TODO: проверить как такое решение работает */
-        shm_zone->data = data;
-        ngx_log_error(NGX_LOG_EMERG, shm_zone->shm.log, 0, "sla uses old pools");
-        return NGX_OK;
+    if (old_pool != NULL) {
+        /* идет перезагрузка потомков, пытаемся сохранить старые данные, если пул не менялся */
+        pool->shm_pool = old_pool->shm_pool;
+        pool->shm_ctx  = old_pool->shm_ctx;
+
+        ngx_shmtx_lock(&pool->shm_pool->mutex);
+        pool->generation = pool->shm_ctx->generation;
+
+        if (ngx_http_sla_compare_pools(pool, old_pool) == NGX_OK) {
+            /* если пул не менялся, поколение не меняется */
+            ngx_shmtx_unlock(&pool->shm_pool->mutex);
+            return NGX_OK;
+        }
+    } else {
+        /* первый запуск, аллокация shm */
+        pool->shm_pool = (ngx_slab_pool_t*)shm_zone->shm.addr;
+        pool->shm_ctx  = ngx_slab_alloc(pool->shm_pool, sizeof(ngx_http_sla_pool_shm_t) * NGX_HTTP_SLA_MAX_COUNTERS_LEN);
+        if (pool->shm_ctx == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_shmtx_lock(&pool->shm_pool->mutex);
     }
 
-    pool = shm_zone->data;
-
-    pool->shm_pool = (ngx_slab_pool_t*)shm_zone->shm.addr;
-
-    pool->shm_ctx = ngx_slab_alloc(pool->shm_pool, sizeof(ngx_http_sla_pool_shm_t) * NGX_HTTP_SLA_MAX_COUNTERS_LEN);
-    if (pool->shm_ctx == NULL) {
-        return NGX_ERROR;
-    }
-
+    /* пул изменился или первый запуск */
     ngx_memzero(pool->shm_ctx, sizeof(ngx_http_sla_pool_shm_t) * NGX_HTTP_SLA_MAX_COUNTERS_LEN);
 
     ngx_str_set(&name, "all");
-    if (ngx_http_sla_add_counter(pool, &name, 0) == NULL) {
-        return NGX_ERROR;
-    }
+    ngx_http_sla_add_counter(pool, &name, 0);
+
+    pool->generation++;
+    pool->shm_ctx->generation = pool->generation;
+
+    ngx_shmtx_unlock(&pool->shm_pool->mutex);
 
     return NGX_OK;
 }
 
-static ngx_int_t ngx_http_sla_push_value (ngx_conf_t* cf, ngx_str_t* orig, ngx_int_t value, ngx_array_t* to, ngx_uint_t is_http)
+static ngx_int_t ngx_http_sla_push_value (ngx_conf_t* cf, const ngx_str_t* orig, ngx_int_t value, ngx_array_t* to, ngx_uint_t is_http)
 {
     ngx_uint_t* p;
 
@@ -903,7 +929,7 @@ static ngx_int_t ngx_http_sla_push_value (ngx_conf_t* cf, ngx_str_t* orig, ngx_i
     return NGX_OK;
 }
 
-static ngx_int_t ngx_http_sla_parse_list (ngx_conf_t* cf, ngx_str_t* orig, ngx_uint_t offset, ngx_array_t* to, ngx_uint_t is_http)
+static ngx_int_t ngx_http_sla_parse_list (ngx_conf_t* cf, const ngx_str_t* orig, ngx_uint_t offset, ngx_array_t* to, ngx_uint_t is_http)
 {
     u_char*   p1;
     u_char*   p2;
@@ -939,7 +965,7 @@ static ngx_int_t ngx_http_sla_parse_list (ngx_conf_t* cf, ngx_str_t* orig, ngx_u
     return NGX_OK;
 }
 
-static ngx_http_sla_pool_t* ngx_http_sla_get_pool (ngx_conf_t* cf, ngx_str_t* name)
+static ngx_http_sla_pool_t* ngx_http_sla_get_pool (const ngx_conf_t* cf, const ngx_str_t* name)
 {
     ngx_uint_t                i;
     ngx_http_sla_pool_t*      pool;
@@ -957,7 +983,52 @@ static ngx_http_sla_pool_t* ngx_http_sla_get_pool (ngx_conf_t* cf, ngx_str_t* na
     return NULL;
 }
 
-static ngx_http_sla_pool_shm_t* ngx_http_sla_get_counter (ngx_http_sla_pool_t* pool, ngx_str_t* name)
+
+static ngx_int_t ngx_http_sla_compare_pools (const ngx_http_sla_pool_t* pool1, const ngx_http_sla_pool_t* pool2)
+{
+    ngx_uint_t        i;
+    const ngx_uint_t* value1;
+    const ngx_uint_t* value2;
+
+    if (pool1->name.len != pool2->name.len || ngx_strcmp(pool1->name.data, pool2->name.data) != 0) {
+        return NGX_ERROR;
+    }
+
+    if (pool1->http.nelts      != pool2->http.nelts      ||
+        pool1->timings.nelts   != pool2->timings.nelts   ||
+        pool1->quantiles.nelts != pool2->quantiles.nelts ||
+        pool1->avg_window      != pool2->avg_window) {
+        return NGX_ERROR;
+    }
+
+    value1 = pool1->http.elts;
+    value2 = pool2->http.elts;
+    for (i = 0; i < pool1->http.nelts; i++) {
+        if (value1[i] != value2[i]) {
+            return NGX_ERROR;
+        }
+    }
+
+    value1 = pool1->timings.elts;
+    value2 = pool2->timings.elts;
+    for (i = 0; i < pool1->timings.nelts; i++) {
+        if (value1[i] != value2[i]) {
+            return NGX_ERROR;
+        }
+    }
+
+    value1 = pool1->quantiles.elts;
+    value2 = pool2->quantiles.elts;
+    for (i = 0; i < pool1->quantiles.nelts; i++) {
+        if (value1[i] != value2[i]) {
+            return NGX_ERROR;
+        }
+    }
+
+    return NGX_OK;
+}
+
+static ngx_http_sla_pool_shm_t* ngx_http_sla_get_counter (ngx_http_sla_pool_t* pool, const ngx_str_t* name)
 {
     ngx_uint_t               i;
     ngx_http_sla_pool_shm_t* counter;
@@ -975,7 +1046,7 @@ static ngx_http_sla_pool_shm_t* ngx_http_sla_get_counter (ngx_http_sla_pool_t* p
     return NULL;
 }
 
-static ngx_http_sla_pool_shm_t* ngx_http_sla_add_counter (ngx_http_sla_pool_t* pool, ngx_str_t* name, ngx_uint_t hint)
+static ngx_http_sla_pool_shm_t* ngx_http_sla_add_counter (ngx_http_sla_pool_t* pool, const ngx_str_t* name, ngx_uint_t hint)
 {
     ngx_uint_t               i;
     ngx_http_sla_pool_shm_t* result;
@@ -1002,10 +1073,10 @@ static ngx_http_sla_pool_shm_t* ngx_http_sla_add_counter (ngx_http_sla_pool_t* p
     return result;
 }
 
-static ngx_int_t ngx_http_sla_set_http_status (ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter, ngx_uint_t status)
+static ngx_int_t ngx_http_sla_set_http_status (const ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter, ngx_uint_t status)
 {
-    ngx_uint_t  i;
-    ngx_uint_t* http;
+    ngx_uint_t        i;
+    const ngx_uint_t* http;
 
     if (status < 100 || status > 599) {
         return NGX_ERROR;
@@ -1030,11 +1101,11 @@ static ngx_int_t ngx_http_sla_set_http_status (ngx_http_sla_pool_t* pool, ngx_ht
     return NGX_OK;
 }
 
-static ngx_int_t ngx_http_sla_set_http_time (ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter, ngx_uint_t ms)
+static ngx_int_t ngx_http_sla_set_http_time (const ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter, ngx_uint_t ms)
 {
-    ngx_uint_t  i;
-    ngx_uint_t  index;
-    ngx_uint_t* timing;
+    ngx_uint_t        i;
+    ngx_uint_t        index;
+    const ngx_uint_t* timing;
 
     /* нулевой тайминг не учитывается, т.к. это статика */
     if (ms == 0) {
@@ -1082,34 +1153,28 @@ static ngx_int_t ngx_http_sla_set_http_time (ngx_http_sla_pool_t* pool, ngx_http
     return NGX_OK;
 }
 
-static ngx_int_t ngx_http_sla_print_pool (ngx_buf_t* buf, ngx_http_sla_pool_t* pool)
+static void ngx_http_sla_print_pool (ngx_buf_t* buf, const ngx_http_sla_pool_t* pool)
 {
     ngx_uint_t i;
-    ngx_int_t  result;
 
     for (i = 0; i < NGX_HTTP_SLA_MAX_COUNTERS_LEN; i++) {
         if (pool->shm_ctx[i].name_len == 0) {
             break;
         }
 
-        result = ngx_http_sla_print_counter(buf, pool, &pool->shm_ctx[i]);
-        if (result != NGX_OK) {
-            return result;
-        }
+        ngx_http_sla_print_counter(buf, pool, &pool->shm_ctx[i]);
     }
-
-    return NGX_OK;
 }
 
-static ngx_int_t ngx_http_sla_print_counter (ngx_buf_t* buf, ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter)
+static void ngx_http_sla_print_counter (ngx_buf_t* buf, const ngx_http_sla_pool_t* pool, const ngx_http_sla_pool_shm_t* counter)
 {
-    ngx_uint_t  i;
-    ngx_uint_t* timing;
-    ngx_uint_t* http;
-    ngx_uint_t* quantile;
-    ngx_uint_t  http_count;
-    ngx_uint_t  http_xxx_count;
-    ngx_uint_t  timings_count;
+    ngx_uint_t        i;
+    ngx_uint_t        http_count;
+    ngx_uint_t        http_xxx_count;
+    ngx_uint_t        timings_count;
+    const ngx_uint_t* http;
+    const ngx_uint_t* timing;
+    const ngx_uint_t* quantile;
 
     timing         = pool->timings.elts;
     timings_count  = counter->timings_agg[pool->timings.nelts - 1];
@@ -1151,8 +1216,6 @@ static ngx_int_t ngx_http_sla_print_counter (ngx_buf_t* buf, ngx_http_sla_pool_t
     for (i = 0; i < pool->quantiles.nelts; i++) {
         buf->last = ngx_sprintf(buf->last, "%V.%s.%uA%% = %uA\n", &pool->name, counter->name, quantile[i], (ngx_uint_t)counter->quantiles[i]);
     }
-
-    return NGX_OK;
 }
 
 static int ngx_libc_cdecl ngx_http_sla_compare_uint (const void* p1, const void* p2)
@@ -1167,13 +1230,13 @@ static int ngx_libc_cdecl ngx_http_sla_compare_uint (const void* p1, const void*
     return one > two ? 1 : -1;
 }
 
-static void ngx_http_sla_init_quantiles (ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter)
+static void ngx_http_sla_init_quantiles (const ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter)
 {
-    double      r;
-    ngx_uint_t  i;
-    ngx_uint_t  j;
-    ngx_uint_t* quantile;
-    ngx_uint_t  quantile_diff[NGX_HTTP_SLA_MAX_QUANTILES_LEN];
+    double            r;
+    ngx_uint_t        i;
+    ngx_uint_t        j;
+    ngx_uint_t        quantile_diff[NGX_HTTP_SLA_MAX_QUANTILES_LEN];
+    const ngx_uint_t* quantile;
 
     /* 1. Set the initial estimate S equal to the q-th sample quantile */
     ngx_qsort(counter->quantiles_fifo, NGX_HTTP_SLA_QUANTILE_M, sizeof(ngx_uint_t), ngx_http_sla_compare_uint);
@@ -1216,16 +1279,16 @@ static void ngx_http_sla_init_quantiles (ngx_http_sla_pool_t* pool, ngx_http_sla
     }
 }
 
-static void ngx_http_sla_update_quantiles (ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter)
+static void ngx_http_sla_update_quantiles (const ngx_http_sla_pool_t* pool, ngx_http_sla_pool_shm_t* counter)
 {
-    double      r;
-    ngx_uint_t  i;
-    ngx_uint_t  j;
-    ngx_uint_t  quantile_25;
-    ngx_uint_t  quantile_75;
-    ngx_uint_t* quantile;
-    ngx_uint_t  quantile_diff[NGX_HTTP_SLA_MAX_QUANTILES_LEN];
-    ngx_uint_t  quantile_less[NGX_HTTP_SLA_MAX_QUANTILES_LEN];
+    double            r;
+    ngx_uint_t        i;
+    ngx_uint_t        j;
+    ngx_uint_t        quantile_25;
+    ngx_uint_t        quantile_75;
+    ngx_uint_t        quantile_diff[NGX_HTTP_SLA_MAX_QUANTILES_LEN];
+    ngx_uint_t        quantile_less[NGX_HTTP_SLA_MAX_QUANTILES_LEN];
+    const ngx_uint_t* quantile;
 
     /* 1 and 2. Updating */
     ngx_memzero(quantile_diff, sizeof(ngx_uint_t) * NGX_HTTP_SLA_MAX_QUANTILES_LEN);
