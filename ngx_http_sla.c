@@ -749,8 +749,22 @@ static ngx_int_t ngx_http_sla_status_handler (ngx_http_request_t* r)
         }
     }
 
-    // TODO: 640K of memory should be enough for anybody :)
-    size = 640 * 1024;
+    config = ngx_http_get_module_main_conf(r, ngx_http_sla_module);
+
+#ifndef NGX_HTTP_SLA_AIRBUG
+    #define NGX_HTTP_SLA_AIRBUG 1024
+#endif
+
+    size =
+        (
+            (sizeof("..http_xxx = ")     + 2 * NGX_HTTP_SLA_MAX_NAME_LEN + NGX_ATOMIC_T_LEN + 1) * (NGX_HTTP_SLA_MAX_HTTP_LEN + 1 + 6) +
+            (sizeof("..time.avg = ")     + 2 * NGX_HTTP_SLA_MAX_NAME_LEN + NGX_ATOMIC_T_LEN + 1) +
+            (sizeof("..time.avg.mov = ") + 2 * NGX_HTTP_SLA_MAX_NAME_LEN + NGX_ATOMIC_T_LEN + 1) +
+            (sizeof(".. = ")             + 2 * NGX_HTTP_SLA_MAX_NAME_LEN + 2 * NGX_ATOMIC_T_LEN + 1) * NGX_HTTP_SLA_MAX_TIMINGS_LEN +
+            (sizeof("...agg = ")         + 2 * NGX_HTTP_SLA_MAX_NAME_LEN + 2 * NGX_ATOMIC_T_LEN + 1) * NGX_HTTP_SLA_MAX_TIMINGS_LEN +
+            (sizeof("..xx% = ")          + 2 * NGX_HTTP_SLA_MAX_NAME_LEN + NGX_ATOMIC_T_LEN + 1) * NGX_HTTP_SLA_MAX_QUANTILES_LEN +
+            4 * NGX_HTTP_SLA_AIRBUG    /* add two parachute, swiss knife and kit */
+        ) * NGX_HTTP_SLA_MAX_COUNTERS_LEN * config->pools.nelts;
 
     buf = ngx_create_temp_buf(r->pool, size);
     if (buf == NULL) {
@@ -759,8 +773,6 @@ static ngx_int_t ngx_http_sla_status_handler (ngx_http_request_t* r)
 
     out.buf  = buf;
     out.next = NULL;
-
-    config = ngx_http_get_module_main_conf(r, ngx_http_sla_module);
 
     /* формирование результата */
     pool = config->pools.elts;
