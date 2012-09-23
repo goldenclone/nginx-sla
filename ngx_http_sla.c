@@ -117,19 +117,29 @@ typedef struct {
 } ngx_http_sla_pool_t;
 
 /**
+ * Алиас для апстрима
+ */
+typedef struct {
+    ngx_str_t name;    /** Исходное имя апстрима */
+    ngx_str_t alias;   /** Алиас для статистики  */
+} ngx_http_sla_alias_t;
+
+/**
  * Основная конфигурация
  */
 typedef struct {
-    ngx_array_t          pools;          /** Пулы статистики  */
-    ngx_http_sla_pool_t* default_pool;   /** Пул по умолчанию */
+    ngx_array_t          pools;          /** Пулы статистики (ngx_http_sla_pool_t)   */
+    ngx_array_t          aliases;        /** Алиасы апстримов (ngx_http_sla_alias_t) */
+    ngx_http_sla_pool_t* default_pool;   /** Пул по умолчанию                        */
 } ngx_http_sla_main_conf_t;
 
 /**
  * Конфигурация location
  */
 typedef struct {
-    ngx_http_sla_pool_t* pool;   /** Пул для сбора статистики */
-    ngx_uint_t           off;    /** Сбор статистики выключен */
+    ngx_http_sla_pool_t* pool;      /** Пул для сбора статистики                */
+    ngx_array_t*         aliases;   /** Алиасы апстримов (ngx_http_sla_alias_t) */
+    ngx_uint_t           off;       /** Сбор статистики выключен                */
 } ngx_http_sla_loc_conf_t;
 
 
@@ -143,6 +153,11 @@ static char*     ngx_http_sla_merge_loc_conf   (ngx_conf_t* cf, void* parent, vo
  * Обработчик конфигурации sla_pool
  */
 static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
+
+/**
+ * Обработчик конфигурации sla_alias
+ */
+static char* ngx_http_sla_alias (ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 
 /**
  * Обработчик конфигурации sla_pass
@@ -200,6 +215,11 @@ static ngx_http_sla_pool_t* ngx_http_sla_get_pool (const ngx_conf_t* cf, const n
 static ngx_int_t ngx_http_sla_compare_pools (const ngx_http_sla_pool_t* pool1, const ngx_http_sla_pool_t* pool2);
 
 /**
+ * Поиск алиаса для апстрима
+ */
+static ngx_str_t* ngx_http_sla_get_alias (const ngx_array_t* aliases, const ngx_str_t* name);
+
+/**
  * Поиск счетчика по имени или создание нового счетчика в пуле
  */
 static ngx_http_sla_pool_shm_t* ngx_http_sla_get_counter (ngx_http_sla_pool_t* pool, const ngx_str_t* name);
@@ -252,6 +272,13 @@ static ngx_command_t ngx_http_sla_commands[] = {
     { ngx_string("sla_pool"),
       NGX_HTTP_MAIN_CONF | NGX_CONF_1MORE,
       ngx_http_sla_pool,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      0,
+      NULL },
+
+    { ngx_string("sla_alias"),
+      NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE2,
+      ngx_http_sla_alias,
       NGX_HTTP_MAIN_CONF_OFFSET,
       0,
       NULL },
@@ -354,6 +381,10 @@ static void* ngx_http_sla_create_main_conf (ngx_conf_t* cf)
 
     config->default_pool = NULL;
 
+    if (ngx_array_init(&config->aliases, cf->pool, NGX_HTTP_SLA_MAX_TIMINGS_LEN, sizeof(ngx_http_sla_alias_t)) != NGX_OK) {
+        return NULL;
+    }
+
     /* EWSA: Calculate average updating weight for next step */
     ngx_http_sla_quantile_cc = 0;
     for (i = 0; i < NGX_HTTP_SLA_QUANTILE_M; i++) {
@@ -386,6 +417,8 @@ static char* ngx_http_sla_merge_loc_conf (ngx_conf_t* cf, void* parent, void* ch
     }
 
     config = ngx_http_conf_get_module_main_conf(cf, ngx_http_sla_module);
+
+    current->aliases = &config->aliases;
 
     if (current->pool != NULL) {
         return NGX_CONF_OK;
@@ -577,6 +610,58 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
 
     shm_zone->data = pool;
     shm_zone->init = ngx_http_sla_init_zone;
+
+    return NGX_CONF_OK;
+}
+
+static char* ngx_http_sla_alias (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
+{
+    ngx_uint_t                i;
+    ngx_str_t*                value;
+    ngx_http_sla_alias_t*     alias;
+    ngx_http_sla_main_conf_t* config = conf;
+
+    value = cf->args->elts;
+
+    /* поиск среди имеющихся алиасов */
+    alias = config->aliases.elts;
+    for (i = 0; i < config->aliases.nelts; i++) {
+        if (alias[i].name.len == value[1].len && ngx_strcmp(alias[i].name.data, value[1].data) == 0) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "duplicate sla_alias name \"%V\"", &value[1]);
+            return NGX_CONF_ERROR;
+        }
+    }
+
+    if (value[2].len < 1) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "alias too short \"%V\"", &value[2]);
+        return NGX_CONF_ERROR;
+    }
+
+    if (value[2].len >= NGX_HTTP_SLA_MAX_NAME_LEN - 1) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "alias too long \"%V\"", &value[2]);
+        return NGX_CONF_ERROR;
+    }
+
+    alias = ngx_array_push(&config->aliases);
+
+    alias->name.data = ngx_palloc(cf->pool, (value[1].len + 1) * sizeof(u_char));
+    if (alias->name.data == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    alias->alias.data = ngx_palloc(cf->pool, (value[2].len + 1) * sizeof(u_char));
+    if (alias->alias.data == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    alias->name.len  = value[1].len;
+    alias->alias.len = value[2].len;
+
+    ngx_memcpy(alias->name.data,  value[1].data, value[1].len);
+    ngx_memcpy(alias->alias.data, value[2].data, value[2].len);
+
+    alias->name.data[value[1].len]  = 0;
+    alias->alias.data[value[2].len] = 0;
 
     return NGX_CONF_OK;
 }
@@ -793,6 +878,7 @@ static ngx_int_t ngx_http_sla_processor (ngx_http_request_t* r)
     ngx_msec_int_t             ms;
     ngx_msec_int_t             time;
     ngx_uint_t                 status;
+    ngx_str_t*                 alias;
     ngx_http_sla_pool_shm_t*   counter;
     ngx_http_sla_loc_conf_t*   config;
     ngx_http_upstream_state_t* state;
@@ -828,7 +914,12 @@ static ngx_int_t ngx_http_sla_processor (ngx_http_request_t* r)
 
             time += ms;
 
-            counter = ngx_http_sla_get_counter(config->pool, state[i].peer);
+            alias = ngx_http_sla_get_alias(config->aliases, state[i].peer);
+            if (alias == NULL) {
+                alias = state[i].peer;
+            }
+
+            counter = ngx_http_sla_get_counter(config->pool, alias);
             if (counter == NULL) {
                 ngx_shmtx_unlock(&config->pool->shm_pool->mutex);
                 return NGX_ERROR;
@@ -983,7 +1074,6 @@ static ngx_http_sla_pool_t* ngx_http_sla_get_pool (const ngx_conf_t* cf, const n
     return NULL;
 }
 
-
 static ngx_int_t ngx_http_sla_compare_pools (const ngx_http_sla_pool_t* pool1, const ngx_http_sla_pool_t* pool2)
 {
     ngx_uint_t        i;
@@ -1026,6 +1116,22 @@ static ngx_int_t ngx_http_sla_compare_pools (const ngx_http_sla_pool_t* pool1, c
     }
 
     return NGX_OK;
+}
+
+static ngx_str_t* ngx_http_sla_get_alias (const ngx_array_t* aliases, const ngx_str_t* name)
+{
+    ngx_uint_t            i;
+    ngx_http_sla_alias_t* alias;
+
+    alias = aliases->elts;
+    for (i = 0; i < aliases->nelts; i++) {
+        if (alias->name.len == name->len && ngx_strcmp(alias->name.data, name->data) == 0) {
+            return &alias->alias;
+        }
+        alias++;
+    }
+
+    return NULL;
 }
 
 static ngx_http_sla_pool_shm_t* ngx_http_sla_get_counter (ngx_http_sla_pool_t* pool, const ngx_str_t* name)
