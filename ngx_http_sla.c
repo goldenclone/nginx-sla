@@ -1009,6 +1009,14 @@ static ngx_int_t ngx_http_sla_push_value (ngx_conf_t* cf, const ngx_str_t* orig,
         return NGX_ERROR;
     }
 
+    if (is_http == 0 && to->nelts > 0) {
+        p = to->elts;
+        if (p[to->nelts - 1] >= (ngx_uint_t)value) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "timings must be in asc order but desc or equal found in \"%V\"", orig);
+            return NGX_ERROR;
+        }
+    }
+
     p = ngx_array_push(to);
 
     if (p == NULL) {
