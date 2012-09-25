@@ -111,6 +111,7 @@ typedef struct {
     ngx_array_t              timings;      /** Тайминги (ngx_uint_t)                */
     ngx_array_t              quantiles;    /** Квантили (ngx_uint_t)                */
     ngx_uint_t               avg_window;   /** Размер окна для скользящего среднего */
+    ngx_uint_t               min_timing;   /** Время "отсечки"                      */
     ngx_slab_pool_t*         shm_pool;     /** Shared memory pool                   */
     ngx_http_sla_pool_shm_t* shm_ctx;      /** Данные в shared memory               */
     ngx_uint_t               generation;   /** Номер поколения пула                 */
@@ -497,6 +498,7 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     pool->shm_pool   = NULL;
     pool->shm_ctx    = NULL;
     pool->avg_window = 1600;
+    pool->min_timing = 0;
     pool->generation = 0;   /* установится при аллокации shm зоны */
 
     /* парсинг параметров */
@@ -522,6 +524,16 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
                 return NGX_CONF_ERROR;
             }
             pool->avg_window = ival;
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "min_timing=", 11) == 0) {
+            ival = ngx_atoi(&value[i].data[11], value[i].len - 11);
+            if (ival == NGX_ERROR || ival < 0) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "incorrect min_timing value \"%V\"", &value[i]);
+                return NGX_CONF_ERROR;
+            }
+            pool->min_timing = ival;
             continue;
         }
 
@@ -1233,8 +1245,8 @@ static ngx_int_t ngx_http_sla_set_http_time (const ngx_http_sla_pool_t* pool, ng
     ngx_uint_t        index;
     const ngx_uint_t* timing;
 
-    /* нулевой тайминг не учитывается, т.к. это статика */
-    if (ms == 0) {
+    /* нулевой тайминг (статика) и тайминг меньше времени отсечки не учитывается */
+    if (ms == 0 || ms < pool->min_timing) {
         return NGX_OK;
     }
 
