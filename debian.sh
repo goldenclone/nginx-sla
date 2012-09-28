@@ -37,7 +37,6 @@ rm -rf "${WORK_DIR}"
 rm -f *.dsc
 rm -f *.changes
 rm -f *.tar.gz
-rm -f *.patch
 
 rm -f nginx_*_all.deb
 rm -f nginx-common_*_all.deb
