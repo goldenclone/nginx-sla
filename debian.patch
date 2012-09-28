@@ -1,0 +1,10 @@
+--- /dev/null
++++ debian/rules
+@@ -88,6 +88,7 @@
+ 	    --add-module=$(MODULESDIR)/nginx-echo \
+ 	    --add-module=$(MODULESDIR)/nginx-upstream-fair \
+ 	    --add-module=$(MODULESDIR)/nginx-dav-ext-module \
++	    --add-module=$(MODULESDIR)/nginx-sla \
+             $(CONFIGURE_OPTS) >$@
+ 	touch $@
+ 
