@@ -1,5 +1,7 @@
 # nginx-sla
 
+[English version](https://github.com/goldenclone/nginx-sla/blob/master/README.en.md)
+
 Модуль [nginx](http://nginx.org/ru/), реализующий сбор расширенной статистики по HTTP-кодам и временам ответов апстримов для дальнейшей передачи в средства мониторинга типа [zabbix](http://www.zabbix.com/).
 
 Модуль отвечает на следующие вопросы:

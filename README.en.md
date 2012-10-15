@@ -22,8 +22,8 @@ For assembling purposes nginx must be configured with an additional parameter:
 
 ```
 syntax:  sla_pool name [timings=time:time:...:time]
-                      [http=status:status:...:status]
-                      [avg_window=number] [min_timing=number] [default];
+                       [http=status:status:...:status]
+                       [avg_window=number] [min_timing=number] [default];
 default: timings=300:500:2000,
          http=200:301:302:304:400:401:403:404:499:500:502:503:504,
          avg_window=1600,
@@ -37,8 +37,8 @@ It defines a named pool for statistics collecting. At least one pool must be spe
 * `timings` - time lags in ms, that are used for counting a "hit" of request time;
 * `http` - traceable HTTP-statuses;
 * `avg_window` - window size for calculating the moving average response time;
-* `min_timing` - time in ms, below which the upstreams’ response times aren’t taken into an account;
-* `default` - defines a default pool - this pool accumulates all the queries for which `sla_pass` directive doesn’t clearly specify another pool.
+* `min_timing` - time in ms, below which the upstreams response times aren't taken into an account;
+* `default` - defines a default pool - this pool accumulates all the queries for which `sla_pass` directive doesn't clearly specify another pool.
 
 It is recommended to choose window size for calculating the moving average response time based on the average number of dynamic queries per second multiplied by the length of data collection time.
 
@@ -141,8 +141,8 @@ main.<upstream>.http_200 = 270
 ...
 ```
 
-* Here, the first value is a statistics pool’s name;
-* The second value is an upstream’s name or `all` for all upstreams in the pool (including local statics);
+* Here, the first value is a statistics pool's name;
+* The second value is an upstream's name or `all` for all upstreams in the pool (including local statics);
 * The third value - name of the statistics key:
   * `http` - number of processed answers with known HTTP statuses;
   * `http_200` - number of answers with HTTP-status 200 (may be `http_301`, `http_404`, `http_500` etc.);
@@ -166,4 +166,4 @@ Algorithm parameters can be altered at compiling phase by specifying relevant pr
 * `NGX_HTTP_SLA_QUANTILE_M` - size of FIFO buffer for data update (100 by default);
 * `NGX_HTTP_SLA_QUANTILE_W` - weighting coefficient of computed fractiles update (0.01 by default).
 
-It makes sense to carefully read algorithm’s description before changing these parameters.
+It makes sense to carefully read algorithm's description before changing these parameters.
