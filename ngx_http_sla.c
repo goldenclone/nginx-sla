@@ -1449,6 +1449,10 @@ static void ngx_http_sla_update_quantiles (const ngx_http_sla_pool_t* pool, ngx_
         counter->quantiles_f[i] = ((double)1 - NGX_HTTP_SLA_QUANTILE_W) * counter->quantiles_f[i] + NGX_HTTP_SLA_QUANTILE_W / ((double)2 * counter->quantiles_c * (double)NGX_HTTP_SLA_QUANTILE_M) * (double)quantile_diff[i];
     }
 
+    // may be used uninitialized in this function warning
+    quantile_25 = 0;
+    quantile_75 = 0;
+
     /* 3.1. Take r to be the difference of the current EWSA estimates for the 75 and 25 quantiles */
     for (i = 0; i < pool->quantiles.nelts; i++) {
         if (quantile[i] == 25) {
