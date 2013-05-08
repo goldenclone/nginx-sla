@@ -1101,6 +1101,7 @@ static ngx_http_sla_pool_t* ngx_http_sla_get_pool (const ngx_conf_t* cf, const n
         if (pool->name.len == name->len && ngx_strcmp(pool->name.data, name->data) == 0) {
             return pool;
         }
+        pool++;
     }
 
     return NULL;
