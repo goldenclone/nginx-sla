@@ -874,6 +874,7 @@ static ngx_int_t ngx_http_sla_purge_handler (ngx_http_request_t* r)
 
         if (pool->generation == pool->shm_ctx->generation) {
             ngx_memzero(pool->shm_ctx, sizeof(ngx_http_sla_pool_shm_t) * NGX_HTTP_SLA_MAX_COUNTERS_LEN);
+            pool->shm_ctx->generation = pool->generation;
             ngx_http_sla_add_counter(pool, &name, 0);
         }
 
