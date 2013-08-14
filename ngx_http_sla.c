@@ -456,7 +456,7 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     /* поиск среди имеющихся пулов */
     pool = config->pools.elts;
     for (i = 0; i < config->pools.nelts; i++) {
-        if (pool[i].name.len == value[1].len && ngx_strcmp(pool[i].name.data, value[1].data) == 0) {
+        if (pool[i].name.len == value[1].len && ngx_strncmp(pool[i].name.data, value[1].data, value[1].len) == 0) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "duplicate sla_pool name \"%V\"", &value[1]);
             return NGX_CONF_ERROR;
         }
@@ -638,7 +638,7 @@ static char* ngx_http_sla_alias (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     /* поиск среди имеющихся алиасов */
     alias = config->aliases.elts;
     for (i = 0; i < config->aliases.nelts; i++) {
-        if (alias[i].name.len == value[1].len && ngx_strcmp(alias[i].name.data, value[1].data) == 0) {
+        if (alias[i].name.len == value[1].len && ngx_strncmp(alias[i].name.data, value[1].data, value[1].len) == 0) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "duplicate sla_alias name \"%V\"", &value[1]);
             return NGX_CONF_ERROR;
         }
@@ -1099,7 +1099,7 @@ static ngx_http_sla_pool_t* ngx_http_sla_get_pool (const ngx_conf_t* cf, const n
 
     pool = config->pools.elts;
     for (i = 0; i < config->pools.nelts; i++) {
-        if (pool->name.len == name->len && ngx_strcmp(pool->name.data, name->data) == 0) {
+        if (pool->name.len == name->len && ngx_strncmp(pool->name.data, name->data, name->len) == 0) {
             return pool;
         }
         pool++;
@@ -1114,7 +1114,7 @@ static ngx_int_t ngx_http_sla_compare_pools (const ngx_http_sla_pool_t* pool1, c
     const ngx_uint_t* value1;
     const ngx_uint_t* value2;
 
-    if (pool1->name.len != pool2->name.len || ngx_strcmp(pool1->name.data, pool2->name.data) != 0) {
+    if (pool1->name.len != pool2->name.len || ngx_strncmp(pool1->name.data, pool2->name.data, pool2->name.len) != 0) {
         return NGX_ERROR;
     }
 
@@ -1159,7 +1159,7 @@ static ngx_str_t* ngx_http_sla_get_alias (const ngx_array_t* aliases, const ngx_
 
     alias = aliases->elts;
     for (i = 0; i < aliases->nelts; i++) {
-        if (alias->name.len == name->len && ngx_strcmp(alias->name.data, name->data) == 0) {
+        if (alias->name.len == name->len && ngx_strncmp(alias->name.data, name->data, name->len) == 0) {
             return &alias->alias;
         }
         alias++;
@@ -1175,7 +1175,7 @@ static ngx_http_sla_pool_shm_t* ngx_http_sla_get_counter (ngx_http_sla_pool_t* p
 
     counter = pool->shm_ctx;
     for (i = 0; i < NGX_HTTP_SLA_MAX_COUNTERS_LEN; i++) {
-        if (counter->name_len == name->len && ngx_strcmp(counter->name, name->data) == 0) {
+        if (counter->name_len == name->len && ngx_strncmp(counter->name, name->data, name->len) == 0) {
             return counter;
         } else if (counter->name_len == 0) {
             return ngx_http_sla_add_counter(pool, name, i);
