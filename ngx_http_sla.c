@@ -208,7 +208,7 @@ static ngx_int_t ngx_http_sla_parse_list (ngx_conf_t* cf, const ngx_str_t* orig,
 /**
  * Поиск пула по имени
  */
-static ngx_http_sla_pool_t* ngx_http_sla_get_pool (const ngx_conf_t* cf, const ngx_str_t* name);
+static ngx_http_sla_pool_t* ngx_http_sla_get_pool (const ngx_array_t* pools, const ngx_str_t* name);
 
 /**
  * Сравнение конфигурации двух пулов
@@ -620,7 +620,7 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
         return NGX_CONF_ERROR;
     }
 
-    shm_zone->data = pool;
+    shm_zone->data = &config->pools;
     shm_zone->init = ngx_http_sla_init_zone;
 
     return NGX_CONF_OK;
@@ -680,9 +680,10 @@ static char* ngx_http_sla_alias (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
 
 static char* ngx_http_sla_pass (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
 {
-    ngx_str_t*               value;
-    ngx_http_sla_pool_t*     pool;
-    ngx_http_sla_loc_conf_t* config = conf;
+    ngx_str_t*                value;
+    ngx_http_sla_pool_t*      pool;
+    ngx_http_sla_main_conf_t* main;
+    ngx_http_sla_loc_conf_t*  config = conf;
 
     value = cf->args->elts;
 
@@ -694,7 +695,8 @@ static char* ngx_http_sla_pass (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     }
 
     /* поиск пула */
-    pool = ngx_http_sla_get_pool(cf, &value[1]);
+    main = ngx_http_conf_get_module_main_conf(cf, ngx_http_sla_module);
+    pool = ngx_http_sla_get_pool(&main->pools, &value[1]);
 
     if (pool == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "sla_pool \"%V\" not found", &value[1]);
@@ -975,18 +977,24 @@ static ngx_int_t ngx_http_sla_processor (ngx_http_request_t* r)
 static ngx_int_t ngx_http_sla_init_zone (ngx_shm_zone_t* shm_zone, void* data)
 {
     ngx_str_t            name;
-    ngx_http_sla_pool_t* pool     = shm_zone->data;
-    ngx_http_sla_pool_t* old_pool = data;
+    ngx_http_sla_pool_t* pool;
+    ngx_http_sla_pool_t* old = NULL;
 
-    if (old_pool != NULL) {
+    pool = ngx_http_sla_get_pool(shm_zone->data, &shm_zone->shm.name);
+
+    if (data != NULL) {
+        old = ngx_http_sla_get_pool(data, &shm_zone->shm.name);
+    }
+
+    if (old != NULL) {
         /* идет перезагрузка потомков, пытаемся сохранить старые данные, если пул не менялся */
-        pool->shm_pool = old_pool->shm_pool;
-        pool->shm_ctx  = old_pool->shm_ctx;
+        pool->shm_pool = old->shm_pool;
+        pool->shm_ctx  = old->shm_ctx;
 
         ngx_shmtx_lock(&pool->shm_pool->mutex);
         pool->generation = pool->shm_ctx->generation;
 
-        if (ngx_http_sla_compare_pools(pool, old_pool) == NGX_OK) {
+        if (ngx_http_sla_compare_pools(pool, old) == NGX_OK) {
             /* если пул не менялся, поколение не меняется */
             ngx_shmtx_unlock(&pool->shm_pool->mutex);
             return NGX_OK;
@@ -1089,16 +1097,13 @@ static ngx_int_t ngx_http_sla_parse_list (ngx_conf_t* cf, const ngx_str_t* orig,
     return NGX_OK;
 }
 
-static ngx_http_sla_pool_t* ngx_http_sla_get_pool (const ngx_conf_t* cf, const ngx_str_t* name)
+static ngx_http_sla_pool_t* ngx_http_sla_get_pool (const ngx_array_t* pools, const ngx_str_t* name)
 {
-    ngx_uint_t                i;
-    ngx_http_sla_pool_t*      pool;
-    ngx_http_sla_main_conf_t* config;
+    ngx_uint_t           i;
+    ngx_http_sla_pool_t* pool;
 
-    config = ngx_http_conf_get_module_main_conf(cf, ngx_http_sla_module);
-
-    pool = config->pools.elts;
-    for (i = 0; i < config->pools.nelts; i++) {
+    pool = pools->elts;
+    for (i = 0; i < pools->nelts; i++) {
         if (pool->name.len == name->len && ngx_strncmp(pool->name.data, name->data, name->len) == 0) {
             return pool;
         }
