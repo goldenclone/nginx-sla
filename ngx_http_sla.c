@@ -682,7 +682,7 @@ static char* ngx_http_sla_pass (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
 {
     ngx_str_t*                value;
     ngx_http_sla_pool_t*      pool;
-    ngx_http_sla_main_conf_t* main;
+    ngx_http_sla_main_conf_t* mconfig;
     ngx_http_sla_loc_conf_t*  config = conf;
 
     value = cf->args->elts;
@@ -695,8 +695,8 @@ static char* ngx_http_sla_pass (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     }
 
     /* поиск пула */
-    main = ngx_http_conf_get_module_main_conf(cf, ngx_http_sla_module);
-    pool = ngx_http_sla_get_pool(&main->pools, &value[1]);
+    mconfig = ngx_http_conf_get_module_main_conf(cf, ngx_http_sla_module);
+    pool    = ngx_http_sla_get_pool(&mconfig->pools, &value[1]);
 
     if (pool == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "sla_pool \"%V\" not found", &value[1]);
