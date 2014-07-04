@@ -110,7 +110,6 @@ Restrictions can be altered at compiling phase by specifying relevant preprocess
 * `NGX_HTTP_SLA_MAX_NAME_LEN` - maximum length of upstream name (256 bytes by default);
 * `NGX_HTTP_SLA_MAX_HTTP_LEN` - maximum number of traceable HTTP statuses (32 by default);
 * `NGX_HTTP_SLA_MAX_TIMINGS_LEN` - maximum number of traceable timings (32 by default);
-* `NGX_HTTP_SLA_MAX_QUANTILES_LEN` - maximum number of traceable fractiles (16 by default);
 * `NGX_HTTP_SLA_MAX_COUNTERS_LEN` - maximum number of counters (upstreams) in the pool (16 by default).
 
 ## Statistics content

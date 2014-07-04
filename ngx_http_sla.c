@@ -34,10 +34,14 @@
 
 
 /**
- * Максимальная длина имени апстрима
+ * Максимальная длина имени апстрима (минус терминирующий ноль)
  */
 #ifndef NGX_HTTP_SLA_MAX_NAME_LEN
     #define NGX_HTTP_SLA_MAX_NAME_LEN 256
+#endif
+
+#if NGX_HTTP_SLA_MAX_NAME_LEN < 2
+    #error "NGX_HTTP_SLA_MAX_NAME_LEN must be at least 2"
 #endif
 
 /**
@@ -47,6 +51,10 @@
     #define NGX_HTTP_SLA_MAX_HTTP_LEN 32
 #endif
 
+#if NGX_HTTP_SLA_MAX_HTTP_LEN < 14
+    #error "NGX_HTTP_SLA_MAX_HTTP_LEN must be at least 14"
+#endif
+
 /**
  * Максимальное количество отслеживаемых таймингов (минус 1 для "бесконечности")
  */
@@ -54,11 +62,20 @@
     #define NGX_HTTP_SLA_MAX_TIMINGS_LEN 32
 #endif
 
+#if NGX_HTTP_SLA_MAX_TIMINGS_LEN < 4
+    #error "NGX_HTTP_SLA_MAX_TIMINGS_LEN must be at least 4"
+#endif
+
 /**
  * Максимальное число вычисляемых квантилей (минус 2 для 25% и 75%)
+ * На данный момент список квантилей не конфигурируется (их 7)
  */
 #ifndef NGX_HTTP_SLA_MAX_QUANTILES_LEN
-    #define NGX_HTTP_SLA_MAX_QUANTILES_LEN 16
+    #define NGX_HTTP_SLA_MAX_QUANTILES_LEN 7
+#endif
+
+#if NGX_HTTP_SLA_MAX_QUANTILES_LEN != 7
+    #error "NGX_HTTP_SLA_MAX_QUANTILES_LEN must be 7"
 #endif
 
 /**
@@ -68,11 +85,19 @@
     #define NGX_HTTP_SLA_MAX_COUNTERS_LEN 16
 #endif
 
+#if NGX_HTTP_SLA_MAX_COUNTERS_LEN < 1
+    #error "NGX_HTTP_SLA_MAX_COUNTERS_LEN must be at least 1"
+#endif
+
 /**
  * Размер FIFO буфера для вычисления квантилей
  */
 #ifndef NGX_HTTP_SLA_QUANTILE_M
     #define NGX_HTTP_SLA_QUANTILE_M 100
+#endif
+
+#if NGX_HTTP_SLA_QUANTILE_M < 10
+    #error "NGX_HTTP_SLA_QUANTILE_M must be at least 10"
 #endif
 
 /**
