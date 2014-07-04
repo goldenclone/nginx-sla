@@ -1,10 +1,10 @@
 --- /dev/null
 +++ debian/rules
-@@ -88,6 +88,7 @@
- 	    --add-module=$(MODULESDIR)/nginx-echo \
- 	    --add-module=$(MODULESDIR)/nginx-upstream-fair \
- 	    --add-module=$(MODULESDIR)/nginx-dav-ext-module \
-+	    --add-module=$(MODULESDIR)/nginx-sla \
-             $(CONFIGURE_OPTS) >$@
- 	touch $@
- 
+@@ -76,6 +76,7 @@
+ 			--with-http_xslt_module \
+ 			--with-mail \
+ 			--with-mail_ssl_module \
++			--add-module=$(MODULESDIR)/nginx-sla \
+ 			--add-module=$(MODULESDIR)/nginx-auth-pam \
+ 			--add-module=$(MODULESDIR)/nginx-dav-ext-module \
+ 			--add-module=$(MODULESDIR)/nginx-echo \
