@@ -655,6 +655,9 @@ static char* ngx_http_sla_alias (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     }
 
     alias = ngx_array_push(&config->aliases);
+    if (alias == NULL) {
+        return NGX_CONF_ERROR;
+    }
 
     alias->name.data = ngx_palloc(cf->pool, (value[1].len + 1) * sizeof(u_char));
     if (alias->name.data == NULL) {
