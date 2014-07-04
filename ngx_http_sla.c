@@ -494,16 +494,19 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     }
 
     /* имя пула */
-    pool->name.data = ngx_palloc(cf->pool, (value[1].len + 1) * sizeof(u_char));
+    size = (value[1].len + 1) * sizeof(u_char);
+    if (size > NGX_HTTP_SLA_MAX_NAME_LEN) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "pool name too long");
+        return NGX_CONF_ERROR;
+    }
 
+    pool->name.data = ngx_palloc(cf->pool, size);
     if (pool->name.data == NULL) {
         return NGX_CONF_ERROR;
     }
 
     pool->name.len = value[1].len;
-
     ngx_memcpy(pool->name.data, value[1].data, value[1].len);
-
     pool->name.data[value[1].len] = 0;
 
     /* массивы */
@@ -799,7 +802,7 @@ static ngx_int_t ngx_http_sla_status_handler (ngx_http_request_t* r)
 
     size =
         (
-            (sizeof("..http_xxx = ")     + 2 * NGX_HTTP_SLA_MAX_NAME_LEN + NGX_ATOMIC_T_LEN + 1) * (NGX_HTTP_SLA_MAX_HTTP_LEN + 1 + 6) +
+            (sizeof("..http_xxx = ")     + 2 * NGX_HTTP_SLA_MAX_NAME_LEN + NGX_ATOMIC_T_LEN + 1) * (NGX_HTTP_SLA_MAX_HTTP_LEN + 1 /* http_xxx */ + 6 /* http_2xx */) +
             (sizeof("..time.avg = ")     + 2 * NGX_HTTP_SLA_MAX_NAME_LEN + NGX_ATOMIC_T_LEN + 1) +
             (sizeof("..time.avg.mov = ") + 2 * NGX_HTTP_SLA_MAX_NAME_LEN + NGX_ATOMIC_T_LEN + 1) +
             (sizeof(".. = ")             + 2 * NGX_HTTP_SLA_MAX_NAME_LEN + 2 * NGX_ATOMIC_T_LEN + 1) * NGX_HTTP_SLA_MAX_TIMINGS_LEN +
