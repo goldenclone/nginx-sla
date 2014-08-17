@@ -154,9 +154,9 @@ typedef struct {
  * Основная конфигурация
  */
 typedef struct {
-    ngx_array_t          pools;          /** Пулы статистики (ngx_http_sla_pool_t)   */
-    ngx_array_t          aliases;        /** Алиасы апстримов (ngx_http_sla_alias_t) */
-    ngx_http_sla_pool_t* default_pool;   /** Пул по умолчанию                        */
+    ngx_array_t pools;          /** Пулы статистики (ngx_http_sla_pool_t)   */
+    ngx_array_t aliases;        /** Алиасы апстримов (ngx_http_sla_alias_t) */
+    ngx_str_t   default_pool;   /** Имя пула по умолчанию                   */
 } ngx_http_sla_main_conf_t;
 
 /**
@@ -405,7 +405,7 @@ static void* ngx_http_sla_create_main_conf (ngx_conf_t* cf)
         return NULL;
     }
 
-    config->default_pool = NULL;
+    ngx_str_null(&config->default_pool);
 
     if (ngx_array_init(&config->aliases, cf->pool, 4, sizeof(ngx_http_sla_alias_t)) != NGX_OK) {
         return NULL;
@@ -453,7 +453,7 @@ static char* ngx_http_sla_merge_loc_conf (ngx_conf_t* cf, void* parent, void* ch
     current->pool = prev->pool;
 
     if (current->pool == NULL) {
-        current->pool = config->default_pool;
+        current->pool = ngx_http_sla_get_pool(&config->pools, &config->default_pool);
     }
 
     return NGX_CONF_OK;
@@ -566,11 +566,17 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
         }
 
         if (value[i].len == 7 && ngx_strncmp(value[i].data, "default", 7) == 0) {
-            if (config->default_pool != NULL) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "default sla_pool \"%V\" already defined", &config->default_pool->name);
+            if (config->default_pool.data != NULL) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "default sla_pool \"%V\" already defined", &config->default_pool->data);
                 return NGX_CONF_ERROR;
             }
-            config->default_pool = pool;
+            size = pool->name.len + sizeof(u_char);
+            config->default_pool.len  = pool->name.len;
+            config->default_pool.data = ngx_palloc(cf->pool, size);
+            if (config->default_pool.data == NULL) {
+                return NGX_CONF_ERROR;
+            }
+            ngx_memcpy(config->default_pool.data, pool->name.data, size);
             continue;
         }
 
