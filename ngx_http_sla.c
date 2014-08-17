@@ -567,7 +567,7 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
 
         if (value[i].len == 7 && ngx_strncmp(value[i].data, "default", 7) == 0) {
             if (config->default_pool.data != NULL) {
-                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "default sla_pool \"%V\" already defined", &config->default_pool->data);
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "default sla_pool \"%V\" already defined", &config->default_pool.data);
                 return NGX_CONF_ERROR;
             }
             size = pool->name.len + sizeof(u_char);
