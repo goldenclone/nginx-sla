@@ -829,13 +829,15 @@ static ngx_int_t ngx_http_sla_status_handler (ngx_http_request_t* r)
     pool = config->pools.elts;
 
     for (i = 0; i < config->pools.nelts; i++) {
-        ngx_shmtx_lock(&pool->shm_pool->mutex);
+        if (pool->shm_ctx != NULL) {
+            ngx_shmtx_lock(&pool->shm_pool->mutex);
 
-        if (pool->generation == pool->shm_ctx->generation) {
-            ngx_http_sla_print_pool(buf, pool);
+            if (pool->generation == pool->shm_ctx->generation) {
+                ngx_http_sla_print_pool(buf, pool);
+            }
+
+            ngx_shmtx_unlock(&pool->shm_pool->mutex);
         }
-
-        ngx_shmtx_unlock(&pool->shm_pool->mutex);
 
         pool++;
     }
@@ -909,15 +911,17 @@ static ngx_int_t ngx_http_sla_purge_handler (ngx_http_request_t* r)
     pool = config->pools.elts;
 
     for (i = 0; i < config->pools.nelts; i++) {
-        ngx_shmtx_lock(&pool->shm_pool->mutex);
+        if (pool->shm_ctx != NULL) {
+            ngx_shmtx_lock(&pool->shm_pool->mutex);
 
-        if (pool->generation == pool->shm_ctx->generation) {
-            ngx_memzero(pool->shm_ctx, sizeof(ngx_http_sla_pool_shm_t) * NGX_HTTP_SLA_MAX_COUNTERS_LEN);
-            pool->shm_ctx->generation = pool->generation;
-            ngx_http_sla_add_counter(pool, &name, 0);
+            if (pool->generation == pool->shm_ctx->generation) {
+                ngx_memzero(pool->shm_ctx, sizeof(ngx_http_sla_pool_shm_t) * NGX_HTTP_SLA_MAX_COUNTERS_LEN);
+                pool->shm_ctx->generation = pool->generation;
+                ngx_http_sla_add_counter(pool, &name, 0);
+            }
+
+            ngx_shmtx_unlock(&pool->shm_pool->mutex);
         }
-
-        ngx_shmtx_unlock(&pool->shm_pool->mutex);
 
         pool++;
     }
@@ -949,7 +953,7 @@ static ngx_int_t ngx_http_sla_processor (ngx_http_request_t* r)
 
     config = ngx_http_get_module_loc_conf(r, ngx_http_sla_module);
 
-    if (config->off != 0 || config->pool == NULL) {
+    if (config->off != 0 || config->pool == NULL || config->pool->shm_ctx == NULL) {
         return NGX_OK;
     }
 
