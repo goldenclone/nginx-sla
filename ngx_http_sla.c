@@ -642,7 +642,7 @@ static char* ngx_http_sla_pool (ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     }
 
     /* создание зоны shred memory */
-    size = (sizeof(ngx_http_sla_pool_shm_t) * NGX_HTTP_SLA_MAX_COUNTERS_LEN / ngx_pagesize + 2) * ngx_pagesize;
+    size = (sizeof(ngx_http_sla_pool_shm_t) * NGX_HTTP_SLA_MAX_COUNTERS_LEN / ngx_pagesize + 4) * ngx_pagesize;
 
     shm_zone = ngx_shared_memory_add(cf, &pool->name, size, &ngx_http_sla_module);
     if (shm_zone == NULL) {
