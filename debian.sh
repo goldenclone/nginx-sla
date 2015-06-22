@@ -4,6 +4,8 @@
 # скрипт для быстрой сборки nginx-full из backports
 #
 
+set -e
+
 SRC_URL="http://mirror.yandex.ru/debian/pool/main/n/nginx/nginx_1.6.2-5%2ba.exp1.dsc"
 
 WORK_DIR=$(basename "${SRC_URL}" | cut -d '~' -f 1 | cut -d '-' -f 1 | sed -e 's/_/-/')
