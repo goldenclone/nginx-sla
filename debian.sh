@@ -11,28 +11,15 @@ SRC_URL="http://mirror.yandex.ru/debian/pool/main/n/nginx/nginx_1.6.2-5%2ba.exp1
 WORK_DIR=$(basename "${SRC_URL}" | cut -d '~' -f 1 | cut -d '-' -f 1 | sed -e 's/_/-/')
 
 dget -u "${SRC_URL}"
-if [ $? -ne 0 ]; then
-    exit $?
-fi
 
 cd "${WORK_DIR}"
 
-git clone git://github.com/goldenclone/nginx-sla.git debian/modules/nginx-sla
-if [ $? -ne 0 ]; then
-    exit $?
-fi
+git clone git://github.com/abbat/nginx-sla.git debian/modules/nginx-sla
 
 patch -p0 < ../debian.patch
-if [ $? -ne 0 ]; then
-    exit $?
-fi
 
 dpkg-buildpackage -rfakeroot -D -us -uc -b
-if [ $? -ne 0 ]; then
-    exit $?
-fi
 
-# clean
 cd ..
 
 rm -rf "${WORK_DIR}"
