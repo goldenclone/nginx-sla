@@ -31,7 +31,7 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include <math.h>
-
+#include <nginx.h>
 
 /**
  * Максимальная длина имени апстрима (минус терминирующий ноль)
@@ -949,12 +949,18 @@ static ngx_int_t ngx_http_sla_processor (ngx_http_request_t* r)
     ngx_str_t*                 alias;
     ngx_http_sla_pool_shm_t*   counter;
     ngx_http_sla_loc_conf_t*   config;
+    ngx_http_sla_main_conf_t*  mconf;
     ngx_http_upstream_state_t* state;
 
     config = ngx_http_get_module_loc_conf(r, ngx_http_sla_module);
+    mconf = ngx_http_get_module_main_conf(r, ngx_http_sla_module);
 
-    if (config->off != 0 || config->pool == NULL || config->pool->shm_ctx == NULL) {
-        return NGX_OK;
+    if (config->off != 0 || config->pool == NULL || config->pool->name.len == 0) {
+	return NGX_OK;
+    }
+
+    if (config->pool->shm_ctx == NULL) {
+	config->pool = ngx_http_sla_get_pool(&mconf->pools, &config->pool->name);
     }
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "sla processor");
@@ -977,9 +983,13 @@ static ngx_int_t ngx_http_sla_processor (ngx_http_request_t* r)
                 continue;
             }
 
+           #if nginx_version <= 1009000
             ms = (ngx_msec_int_t)(state[i].response_sec * 1000 + state[i].response_msec);
             ms = ngx_max(ms, 0);
-
+           #else
+            ms = (ngx_msec_int_t)(state[i].response_time);
+            ms = ngx_max(ms, 0);
+           #endif
             time += ms;
 
             alias = ngx_http_sla_get_alias(config->aliases, state[i].peer);
